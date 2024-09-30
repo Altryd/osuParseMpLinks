@@ -1,11 +1,17 @@
 package osuParseMpLinks
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 type HttpClient struct {
@@ -91,6 +97,88 @@ func (client *HttpClient) GetUserDataByUsernameOrId(usernameOrId string) map[str
 		}
 		defer resp.Body.Close()
 	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	var data map[string]interface{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+type ParsingConfig struct {
+	warmups  int
+	skipLast int
+	verbose  bool
+	debug    bool
+}
+
+func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) map[string]interface{} {
+	var matchUrl string
+	var matchId int
+	if parsingConfig.debug && len(matchArg) == 0 {
+		fmt.Println("Вставьте ссылку на матч")
+		reader := bufio.NewReader(os.Stdin)
+		matchUrl, err := reader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(matchUrl)
+	} else {
+		if len(matchArg) == 0 {
+			matchUrl = "111555364"
+		} else {
+			matchUrl = matchArg
+		}
+	}
+	if strings.Contains(matchUrl, "/") || strings.Contains(matchUrl, "\\") {
+		matchesRegexp := regexp.MustCompile(`matches/\d+`)
+		allSubstr := matchesRegexp.FindAllString(matchArg, -1)
+		if allSubstr == nil {
+			panic(errors.New("invalid link: cannot find matches/"))
+		}
+		endOfUrl := allSubstr[0]
+		splitUrl := strings.Split(endOfUrl, "/")
+		if len(splitUrl) != 2 {
+			panic(errors.New("invalid link: can't find match id"))
+		}
+		var matchIdStr string = splitUrl[1]
+		var err error
+		matchId, err = strconv.Atoi(matchIdStr)
+		if err != nil {
+			panic(errors.New("invalid link: can't convert matchIdStr to int"))
+		}
+		// fmt.Println(matchId)
+		//matched, _ := regexp.(, matchUrl)
+		//fmt.Println(matched) // false
+	} else {
+		var err error
+		matchId, err = strconv.Atoi(matchArg)
+		if err != nil {
+			panic(errors.New("invalid link: can't convert matchArg to int"))
+		}
+	}
+	// fmt.Println(matchId)
+	// fmt.Println(matchUrl)
+	// client.UpdateToken()
+	url := fmt.Sprintf("https://osu.ppy.sh/api/v2/matches/%d", matchId)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		panic(err)
+	}
+	q := req.URL.Query()
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", client.AccessToken)
+	req.URL.RawQuery = q.Encode()
+	resp, err := client.Client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
