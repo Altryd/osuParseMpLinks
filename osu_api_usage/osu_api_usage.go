@@ -169,15 +169,12 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		if len(splitUrl) != 2 {
 			panic(errors.New("invalid link: can't find match id"))
 		}
-		var matchIdStr string = splitUrl[1]
+		var matchIdStr = splitUrl[1]
 		var err error
 		matchId, err = strconv.Atoi(matchIdStr)
 		if err != nil {
 			panic(errors.New("invalid link: can't convert matchIdStr to int"))
 		}
-		// fmt.Println(matchId)
-		//matched, _ := regexp.(, matchUrl)
-		//fmt.Println(matched) // false
 	} else {
 		var err error
 		matchId, err = strconv.Atoi(matchArg)
@@ -185,9 +182,6 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			panic(errors.New("invalid link: can't convert matchArg to int"))
 		}
 	}
-	// fmt.Println(matchId)
-	// fmt.Println(matchUrl)
-	// client.UpdateToken()
 	url := fmt.Sprintf("https://osu.ppy.sh/api/v2/matches/%d", matchId)
 	data, err := client.reqMatchData(http.MethodGet, url, nil)
 	if err != nil {
@@ -205,22 +199,8 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		panic(errors.New("can't convert latest_event_id to float64"))
 	}
 	eventId := firstEventId
-	// earliestEventId := float64(0)
 	var allScores []interface{}
 	fmt.Println(allScores) // TODO: get all scores from match
-	/*
-		for eventId != earliestEventId {
-			earliestEventId = eventId
-			url := fmt.Sprintf("https://osu.ppy.sh/api/v2/matches/%dbefore=%f", matchId, eventId)
-			data, err = client.reqMatchData(http.MethodGet, url, nil)
-			if err != nil {
-				panic(fmt.Sprintf("can't request match data by url: %s; error: %s", url, err))
-			}
-			eventId, ok = data["first_event_id"].(float64)
-			if ok != true {
-				panic(errors.New("can't convert first_event_id to float64"))
-			}
-		} */
 	for eventId < lastEventId {
 		jsonAfterStr := map[string]any{
 			"after": eventId,
@@ -232,7 +212,6 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			panic(fmt.Sprintf("can't request match data by url: %s; error: %s", url, err))
 		}
 		dataUsers, ok := matchData["users"].([]interface{})
-		//fmt.Println("data users type", reflect.TypeOf(dataUsers[0]))
 		if ok != true {
 			panic(errors.New("can't convert data['users'] to list of maps"))
 		}
@@ -256,7 +235,6 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			}
 
 		}
-		// eventId += 100
 		eventsData := matchData["events"].([]interface{})
 		lastEventInBatchDict, ok := eventsData[len(eventsData)-1].(map[string]interface{})
 		if ok != true {
@@ -266,21 +244,8 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		if ok != true {
 			panic(errors.New("can't convert lastEventInBatch['id'] to float64"))
 		}
-
-		// event_id = match_info_json['events'][-1]['id']
 	}
 
-	//fmt.Println(lastEventId, eventId, allScores)
-	// fmt.Println(reflect.TypeOf(data["users"]))
-
-	fmt.Println("user dict:", userDict)
-	/*
-		for _, value := range dataUsers {
-			userId := value["id"]
-			userDict[userId] = map[string]interface{}{"username": value["username"], "score_sum": 0, "played_maps": map[string]interface{}{}}
-		} */
-	//fmt.Println(data["users"])
-	// fmt.Println(dataUsers)
-	//fmt.Println(userDict)
+	// fmt.Println("user dict:", userDict)
 	return data
 }
