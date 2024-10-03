@@ -140,7 +140,7 @@ func (client *HttpClient) reqMatchData(method string, url string, body io.Reader
 	return data, err
 }
 
-func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) []map[string]interface{} {
+func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}) {
 	var matchUrl string
 	var matchId int
 	if parsingConfig.debug && len(matchArg) == 0 {
@@ -230,7 +230,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			_, ok = userDict[userId]
 			// If the key exists
 			if !ok { // the key is not in dict => user has not been added to the dict
-				userDict[userId] = map[string]interface{}{"username": dataUserDict["username"], "score_sum": 0, "played_maps": map[string]interface{}{}}
+				userDict[userId] = map[string]interface{}{"username": dataUserDict["username"], "score_sum": 0, "played_maps": map[int]interface{}{}}
 
 			}
 
@@ -278,8 +278,47 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 	if parsingConfig.skipLast > 0 {
 		allScoresList = allScoresList[0:parsingConfig.skipLast]
 	}
+	for _, scoreStruct := range allScoresList {
+		scoreStructDict := scoreStruct
+		if ok != true {
+			panic(errors.New("can't convert scoreStruct to map"))
+		}
+		beatmapIdFloat, ok := scoreStructDict["beatmap_id"].(float64)
+		if ok != true {
+			panic(errors.New("can't convert beatmapId to float64"))
+		}
+		beatmapId := int(beatmapIdFloat)
+		scores, ok := scoreStructDict["scores"].([]interface{})
+		if ok != true {
+			panic(errors.New("can't convert scores to list of maps"))
+		}
+		for _, score := range scores {
+			scoreDict, ok := score.(map[string]interface{})
+			if ok != true {
+				panic(errors.New("can't convert score to map"))
+			}
+			userIdFloat := scoreDict["user_id"].(float64)
+			userId := int(userIdFloat)
+			userInfo := userDict[userId].(map[string]interface{})
+			playedMaps := userInfo["played_maps"].(map[int]interface{})
+			_, hasPlayedTwice := playedMaps[beatmapId]
+			if hasPlayedTwice {
+				oldBeatmapScoreDict, ok := playedMaps[beatmapId].(map[string]interface{})
+				if ok != true {
+					panic(errors.New("can't convert playedMap[beatmapId] to map"))
+				}
+				oldScore := oldBeatmapScoreDict["score"].(float64)
+				if oldScore < scoreDict["score"].(float64) {
+					playedMaps[beatmapId] = scoreDict["score"].(float64)
+				}
+			} else {
+				playedMaps[beatmapId] = scoreDict["score"].(float64)
+			}
+			// fmt.Println(playedMaps)
+		}
+	}
+
 	// fmt.Println("user dict:", userDict)
-	// TODO: populate userDict using allScoresList
 	// TODO: calculate score sum, matchcost and other
-	return allScoresList
+	return allScoresList, userDict
 }
