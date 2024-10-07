@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -114,6 +115,7 @@ type ParsingConfig struct {
 	skipLast int
 	verbose  bool
 	debug    bool
+	matchcostStandard int
 }
 
 func (client *HttpClient) reqMatchData(method string, url string, body io.Reader) (map[string]interface{}, error) {
@@ -317,8 +319,62 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			// fmt.Println(playedMaps)
 		}
 	}
-
+	if parsingConfig.matchcostStandard == 0 {
+		parsingConfig.matchcostStandard = 500000
+	}
+	for userId, userDetails := range userDict {
+		mapsPlayed := 0
+		userDetailsDict, ok := userDetails.(map[string]interface{})
+		if ok != true {
+			panic(errors.New("can't convert userDict to map"))
+		}
+		userPlayedMaps, ok := userDetailsDict["played_maps"].(map[int]interface{})
+		if ok != true {
+			panic(errors.New("can't convert userDict to map"))
+		}
+		userDetailsDict["score_sum"] = 0
+		userDictScoreSum := float64(userDetailsDict["score_sum"].(int))
+		for _, scoreStruct := range userPlayedMaps {
+			mapsPlayed += 1
+			score, ok := scoreStruct.(float64)
+			if ok != true {
+				panic(errors.New("can't convert scoreStruct to float64"))
+			}
+			userDictScoreSum += score
+		}
+		userDetailsDict["score_sum"] = userDictScoreSum
+		userDetailsDict["average_score"] = 0
+		if len(userPlayedMaps) > 0 {
+			userDetailsDict["average_score"] = userDictScoreSum / float64(mapsPlayed)
+		}
+		fmt.Println(mapsPlayed, userId, userPlayedMaps)
+	}
+	var averageScoresList [][]float64
+	fmt.Println(averageScoresList)
+	//sort.Sort(userDict)
+	for userId, userDetails := range userDict {
+		userDetailsDict := userDetails.(map[string]interface{})
+		fmt.Println(userDetailsDict)
+		userDetailsAvgScore := userDetailsDict["average_score"].(float64)
+		newEntry := []float64{float64(userId), userDetailsAvgScore}
+		averageScoresList= append(averageScoresList, newEntry)
+		fmt.Println(averageScoresList[0])
+		//averageScoresList.append(userDetailsDict["average_score"].(float64))
+	}
+	sort.Slice(averageScoresList, func(i, j int) bool {
+		return averageScoresList[i][1] > averageScoresList[j][1]  // DESC
+	})
+	if !parsingConfig.verbose {
+		for _, sortedEntry := range averageScoresList {
+			userId := int(sortedEntry[0])
+			userDetailsDict := userDict[userId].(map[string]interface{})
+			avgScore := userDetailsDict["average_score"].(float64)
+			username := userDetailsDict["username"].(string)
+			fmt.Println(username, avgScore)
+			// avgScore := userDict[userId]
+		}
+	}
 	// fmt.Println("user dict:", userDict)
-	// TODO: calculate score sum, matchcost and other
+	// TODO: refactor
 	return allScoresList, userDict
 }
