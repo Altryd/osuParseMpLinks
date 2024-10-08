@@ -112,11 +112,11 @@ func (client *HttpClient) GetUserDataByUsernameOrId(usernameOrId string) (map[st
 }
 
 type ParsingConfig struct {
-	warmups  int
-	skipLast int
-	verbose  bool
-	debug    bool
-	matchcostStandard int
+	Warmups  int
+	SkipLast int
+	Verbose  bool
+	Debug    bool
+	MatchcostStandard int
 }
 
 func (client *HttpClient) reqMatchData(method string, url string, body io.Reader) (map[string]interface{}, error) {
@@ -146,10 +146,12 @@ func (client *HttpClient) reqMatchData(method string, url string, body io.Reader
 func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, error) {
 	var matchUrl string
 	var matchId int
-	if parsingConfig.debug && len(matchArg) == 0 {
+	if parsingConfig.Debug && len(matchArg) == 0 {
 		fmt.Println("Вставьте ссылку на матч")
 		reader := bufio.NewReader(os.Stdin)
-		matchUrl, err := reader.ReadString('\n')
+		var err error
+		matchUrl, err = reader.ReadString('\n')
+		matchUrl = strings.TrimSpace(matchUrl)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -163,7 +165,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 	}
 	if strings.Contains(matchUrl, "/") || strings.Contains(matchUrl, "\\") {
 		matchesRegexp := regexp.MustCompile(`matches/\d+`)
-		allSubstr := matchesRegexp.FindAllString(matchArg, -1)
+		allSubstr := matchesRegexp.FindAllString(matchUrl, -1)
 		if allSubstr == nil {
 			 return nil, nil, errors.New("invalid link: cannot find matches/")
 		}
@@ -180,7 +182,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		}
 	} else {
 		var err error
-		matchId, err = strconv.Atoi(matchArg)
+		matchId, err = strconv.Atoi(matchUrl)
 		if err != nil {
 			return nil, nil, errors.New("invalid link: can't convert matchArg to int")
 		}
@@ -274,11 +276,11 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		}
 	}
 
-	if parsingConfig.warmups > 0 {
-		allScoresList = allScoresList[parsingConfig.warmups:]
+	if parsingConfig.Warmups > 0 {
+		allScoresList = allScoresList[parsingConfig.Warmups:]
 	}
-	if parsingConfig.skipLast > 0 {
-		allScoresList = allScoresList[0:parsingConfig.skipLast]
+	if parsingConfig.SkipLast > 0 {
+		allScoresList = allScoresList[0:parsingConfig.SkipLast]
 	}
 	for _, scoreStruct := range allScoresList {
 		scoreStructDict := scoreStruct
@@ -318,8 +320,8 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			}
 		}
 	}
-	if parsingConfig.matchcostStandard == 0 {
-		parsingConfig.matchcostStandard = 500000
+	if parsingConfig.MatchcostStandard == 0 {
+		parsingConfig.MatchcostStandard = 500000
 	}
 	for _, userDetails := range userDict {
 		mapsPlayed := 0
@@ -347,7 +349,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			userDetailsDict["average_score"] = userDictScoreSum / float64(mapsPlayed)
 		}
 	}
-	if parsingConfig.verbose {
+	if parsingConfig.Verbose {
 		fmt.Println("All scores count:", len(allScoresList))
 		var averageScoresList [][]float64
 		for userId, userDetails := range userDict {
@@ -367,7 +369,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			playedMaps := userDetailsDict["played_maps"].(map[int]interface{})
 			scoreSum := int(userDetailsDict["score_sum"].(float64))
 			fmt.Printf("username: %s (id: %d); avg. score: %f ; match cost: %f ; played maps: %d ; score sum: %d \n",
-				username, userId, avgScore, avgScore / float64(parsingConfig.matchcostStandard), len(playedMaps), scoreSum)
+				username, userId, avgScore, avgScore / float64(parsingConfig.MatchcostStandard), len(playedMaps), scoreSum)
 		}
 	}
 	// TODO: refactor

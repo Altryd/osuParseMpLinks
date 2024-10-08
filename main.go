@@ -15,7 +15,9 @@ func main() {
 	} else {
 		fmt.Println("data from GetUserDataByUsernameOrId", data)
 	}
-	mplinkData, userData, err := client.ParseMplink("https://osu.ppy.sh/community/matches/111534249/", osuParseMpLinks.ParsingConfig{})
+	var parsConf osuParseMpLinks.ParsingConfig
+	parsConf.Verbose = true
+	mplinkData, userData, err := client.ParseMplink("https://osu.ppy.sh/community/matches/111534249/", parsConf)
 	if err != nil {
 		fmt.Println("ERROR:", err)
 	} else {
