@@ -346,21 +346,15 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		if len(userPlayedMaps) > 0 {
 			userDetailsDict["average_score"] = userDictScoreSum / float64(mapsPlayed)
 		}
-		// fmt.Println(mapsPlayed, userId, userPlayedMaps)
 	}
 	if parsingConfig.verbose {
 		fmt.Println("All scores count:", len(allScoresList))
 		var averageScoresList [][]float64
-		// fmt.Println(averageScoresList)
-		//sort.Sort(userDict)
 		for userId, userDetails := range userDict {
 			userDetailsDict := userDetails.(map[string]interface{})
-			// fmt.Println(userDetailsDict)
 			userDetailsAvgScore := userDetailsDict["average_score"].(float64)
 			newEntry := []float64{float64(userId), userDetailsAvgScore}
 			averageScoresList= append(averageScoresList, newEntry)
-			// fmt.Println(averageScoresList[0])
-			//averageScoresList.append(userDetailsDict["average_score"].(float64))
 		}
 		sort.Slice(averageScoresList, func(i, j int) bool {
 			return averageScoresList[i][1] > averageScoresList[j][1]  // DESC
@@ -374,14 +368,8 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			scoreSum := int(userDetailsDict["score_sum"].(float64))
 			fmt.Printf("username: %s (id: %d); avg. score: %f ; match cost: %f ; played maps: %d ; score sum: %d \n",
 				username, userId, avgScore, avgScore / float64(parsingConfig.matchcostStandard), len(playedMaps), scoreSum)
-			//print(f"avg.score: {user_details['average_score']}, "
-			//f"match_cost: {user_details['average_score'] / matchcost_etalon}, "
-			//f"played maps: {len(user_details['played_maps'])} "
-			//f"score sum: {user_details['score_sum']}  by {user_details['username']}, user id: {user_id}")
-			// avgScore := userDict[userId]
 		}
 	}
-	// fmt.Println("user dict:", userDict)
 	// TODO: refactor
 	return allScoresList, userDict, nil
 }
