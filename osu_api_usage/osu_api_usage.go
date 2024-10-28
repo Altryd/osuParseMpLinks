@@ -375,3 +375,85 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 	// TODO: refactor
 	return allScoresList, userDict, nil
 }
+
+func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, error) {
+	var matchUrl string
+	if parsingConfig.Debug && len(matchArg) == 0 {
+		fmt.Println("Вставьте ссылку на матч")
+		reader := bufio.NewReader(os.Stdin)
+		var err error
+		matchUrl, err = reader.ReadString('\n')
+		matchUrl = strings.TrimSpace(matchUrl)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Println(matchUrl)
+	} else {
+		matchUrl = matchArg
+	}
+	var parsingMpLinkConfig = ParsingConfig { Warmups: parsingConfig.Warmups, SkipLast: parsingConfig.SkipLast,
+		Verbose: false, Debug: false, MatchcostStandard: parsingConfig.MatchcostStandard}
+
+	allScoresList, userDict, err := client.ParseMplink(matchUrl, parsingMpLinkConfig)
+	if err != nil {
+		return nil, nil, errors.New(fmt.Sprintf("Can't parse mpLink becaus of: %s", err))
+	}
+	for _, userDetails := range userDict {
+		userDetailsDict := userDetails.(map[string]interface{})
+		userDetailsDict["maps_won"] = 0
+	}
+	// mapsPlayed := len(allScoresList)
+	for _, scoreStruct := range allScoresList {
+		// scoreDict := scoreStruct.(map[string]interface{})
+		// fmt.Println(scoreStruct)
+		scores := scoreStruct["scores"].([]interface{})
+		// fmt.Println(scores)
+
+		type PlayerScore struct {
+			userId   float64
+			score float64
+		}
+		var playerScorePairs[]PlayerScore
+		for _, value := range scores {
+			// fmt.Println(key, value, playerScorePairs)
+			valueMap := value.(map[string]interface{})
+
+			playerScorePairs = append(playerScorePairs, PlayerScore{userId: valueMap["user_id"].(float64),
+				score: valueMap["score"].(float64)})
+			// fmt.Println(keyValuePairs)
+		}
+		sort.Slice(playerScorePairs, func(i, j int) bool {
+			return playerScorePairs[i].score > playerScorePairs[j].score  // DESC !
+		})
+		// fmt.Println(playerScorePairs)
+		playerWonMap := int(playerScorePairs[0].userId)
+		userDetails := userDict[playerWonMap].(map[string]interface{})
+		userDetailsMapsWon := userDetails["maps_won"].(int)
+		userDetails["maps_won"] = userDetailsMapsWon + 1
+		// fmt.Println(userDetails["maps_won"])
+
+
+	}
+	////////////////////////
+	 jsonFile, err := os.Open("osu_api_usage/golang_players_dump.json")
+	 if err != nil {
+		 panic(err)
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := io.ReadAll(jsonFile)
+	var data []map[string]interface{}
+	err = json.Unmarshal(byteValue, &data)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Print(data)
+
+
+
+	////////////////
+	// потом смотреть вот это: https://hackthedeveloper.com/how-to-sort-in-go/#:~:text=Sorting%20a%20map%20directly%20in,the%20sorted%20keys%20or%20values
+	// fmt.Println(allScoresList, userDict)
+	// fmt.Println(matchUrl, matchId, mapsPlayed) // because of warn
+	return nil, userDict, nil
+}
