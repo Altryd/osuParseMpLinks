@@ -155,7 +155,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		if err != nil {
 			return nil, nil, err
 		}
-		fmt.Println(matchUrl)
+		// fmt.Println(matchUrl)
 	} else {
 		if len(matchArg) == 0 {
 			matchUrl = "111555364"
@@ -434,26 +434,26 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 
 
 	}
-	////////////////////////
-	 jsonFile, err := os.Open("osu_api_usage/golang_players_dump.json")
-	 if err != nil {
-		 panic(err)
+	type PlayerWonMap struct {
+		userId   int
+		mapsWon int
 	}
-	defer jsonFile.Close()
-
-	byteValue, _ := io.ReadAll(jsonFile)
-	var data []map[string]interface{}
-	err = json.Unmarshal(byteValue, &data)
-	if err != nil {
-		panic(err)
+	var PlayerWonMapList []PlayerWonMap
+	for userId, value := range userDict {
+		userDetailsDict := value.(map[string]interface{})
+		PlayerWonMapList = append(PlayerWonMapList, PlayerWonMap{userId: userId,
+			mapsWon: userDetailsDict["maps_won"].(int)})
 	}
-	fmt.Print(data)
-
-
-
-	////////////////
-	// потом смотреть вот это: https://hackthedeveloper.com/how-to-sort-in-go/#:~:text=Sorting%20a%20map%20directly%20in,the%20sorted%20keys%20or%20values
-	// fmt.Println(allScoresList, userDict)
-	// fmt.Println(matchUrl, matchId, mapsPlayed) // because of warn
-	return nil, userDict, nil
+	sort.Slice(PlayerWonMapList, func(i, j int) bool {
+		return PlayerWonMapList[i].mapsWon > PlayerWonMapList[j].mapsWon  // DESC !
+	})
+	if len(PlayerWonMapList) < 2 {
+		return nil, nil, errors.New("there are not enough players")
+	}
+	firstPlayer := userDict[PlayerWonMapList[0].userId]
+	secondPlayer := userDict[PlayerWonMapList[1].userId]
+	userDictForOutput := make(map[int]interface{})
+	userDictForOutput[PlayerWonMapList[0].userId] = firstPlayer
+	userDictForOutput[PlayerWonMapList[1].userId] = secondPlayer
+	return allScoresList, userDictForOutput, nil
 }
