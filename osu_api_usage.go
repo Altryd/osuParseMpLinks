@@ -31,7 +31,7 @@ func NewHttpClient() HttpClient {
 }
 
 func (client *HttpClient) UpdateToken() error {
-	secretData := NewSecretData()
+	secretData := NewSecretData("osu_api_usage/secrets.json")
 	jsonData, err := json.Marshal(secretData)
 	if err != nil {
 		return err

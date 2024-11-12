@@ -19,9 +19,9 @@ func (data *SecretData) getClientId() int {
 func (data *SecretData) getClientSecret() string {
 	return data.ClientSecret
 }
-func NewSecretData() SecretData {
+func NewSecretData(pathToSecrets string) SecretData {
 
-	jsonFile, err := os.Open("osu_api_usage/secrets.json")
+	jsonFile, err := os.Open(pathToSecrets)
 	if err != nil {
 		panic(err)
 	}
