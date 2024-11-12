@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	osuParseMpLinks "osuParseMpLinks/osu_api_usage"
+	osuParseMpLinks "osu_api_usage"
 )
 
 func main() {
