@@ -354,7 +354,14 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		var averageScoresList [][]float64
 		for userId, userDetails := range userDict {
 			userDetailsDict := userDetails.(map[string]interface{})
-			userDetailsAvgScore := userDetailsDict["average_score"].(float64)
+			userDetailsAvgScore, ok := userDetailsDict["average_score"].(float64)
+			if ok != true {
+				userDetailsAvgScore, ok := userDetailsDict["average_score"].(int)
+				if ok != true {
+					return nil, nil, errors.New("can't convert averageScore to float64/int")
+				}
+				userDetailsAvgScore = userDetailsAvgScore
+			}
 			newEntry := []float64{float64(userId), userDetailsAvgScore}
 			averageScoresList= append(averageScoresList, newEntry)
 		}
@@ -364,7 +371,14 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		for _, sortedEntry := range averageScoresList {
 			userId := int(sortedEntry[0])
 			userDetailsDict := userDict[userId].(map[string]interface{})
-			avgScore := userDetailsDict["average_score"].(float64)
+			avgScore, ok := userDetailsDict["average_score"].(float64)
+			if ok != true {
+				avgScore, ok := userDetailsDict["average_score"].(int)
+				if ok != true {
+					return nil, nil, errors.New("can't convert averageScore to float64/int")
+				}
+				avgScore = avgScore
+			}
 			username := userDetailsDict["username"].(string)
 			playedMaps := userDetailsDict["played_maps"].(map[int]interface{})
 			scoreSum := int(userDetailsDict["score_sum"].(float64))

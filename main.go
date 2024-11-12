@@ -17,7 +17,8 @@ func main() {
 	}
 	var parsConf osuParseMpLinks.ParsingConfig
 	parsConf.Verbose = true
-	mplinkData, userData, err := client.ParseMplink("111534249", parsConf)
+	parsConf.Debug = true
+	mplinkData, userData, err := client.ParseMplink("", parsConf)
 	if err != nil {
 		fmt.Println("ERROR:", err)
 	} else {
@@ -25,7 +26,7 @@ func main() {
 		fmt.Println(mplinkData)
 		fmt.Println(userData)
 	}
-	mplinkData, userData, err = client.ParseScrim("https://osu.ppy.sh/community/matches/115919101", parsConf)
+	mplinkData, userData, err = client.ParseScrim("https://osu.ppy.sh/community/matches/111534249", parsConf)
 	if err != nil {
 		fmt.Println("ERROR:", err)
 	} else {
