@@ -55,7 +55,7 @@ func (client *HttpClient) UpdateToken(pathToSecrets string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	url := "https://osu.ppy.sh/oauth/token"
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -302,7 +302,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		allScoresList = allScoresList[parsingConfig.Warmups:]
 	}
 	if parsingConfig.SkipLast > 0 {
-		allScoresList = allScoresList[0:parsingConfig.SkipLast]
+		allScoresList = allScoresList[0:len(allScoresList)-parsingConfig.SkipLast]
 	}
 	for _, scoreStruct := range allScoresList {
 		scoreStructDict := scoreStruct
@@ -413,8 +413,8 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 }
 
 type ScrimUserDict struct {
-	osuId uint64
-	MapsWon uint8
+	OsuId uint64
+	MapsWon uint64
 	Username string
 	ScoreSum float64
 	AverageScore float64
@@ -500,19 +500,19 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 	userDictForOutput[PlayerWonMapList[0].userId] = firstPlayer
 	userDictForOutput[PlayerWonMapList[1].userId] = secondPlayer
 	var scrimUserDict ScrimUserDict
-	scrimUserDict.osuId = uint64(PlayerWonMapList[0].userId)
+	scrimUserDict.OsuId = uint64(PlayerWonMapList[0].userId)
 	firstPlayerDict := firstPlayer.(map[string]interface{})
 	scrimUserDict.Username = firstPlayerDict["username"].(string)
 	scrimUserDict.ScoreSum = firstPlayerDict["score_sum"].(float64)
-	scrimUserDict.MapsWon = uint8(firstPlayerDict["maps_won"].(int))
+	scrimUserDict.MapsWon = uint64(firstPlayerDict["maps_won"].(int))
 	scrimUserDict.AverageScore = firstPlayerDict["average_score"].(float64)
 	scrimUserDict.PlayedMaps = firstPlayerDict["played_maps"].(map[int]interface{})
 	var secondScrimUserDict ScrimUserDict
-	secondScrimUserDict.osuId = uint64(PlayerWonMapList[1].userId)
+	secondScrimUserDict.OsuId = uint64(PlayerWonMapList[1].userId)
 	secondPlayerDict := secondPlayer.(map[string]interface{})
 	secondScrimUserDict.Username = secondPlayerDict["username"].(string)
 	secondScrimUserDict.ScoreSum = secondPlayerDict["score_sum"].(float64)
-	secondScrimUserDict.MapsWon = uint8(secondPlayerDict["maps_won"].(int))
+	secondScrimUserDict.MapsWon = uint64(secondPlayerDict["maps_won"].(int))
 	secondScrimUserDict.AverageScore = secondPlayerDict["average_score"].(float64)
 	secondScrimUserDict.PlayedMaps = secondPlayerDict["played_maps"].(map[int]interface{})
 	var userListForOutput []ScrimUserDict
