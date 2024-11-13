@@ -16,8 +16,8 @@ import (
 )
 
 type HttpClient struct {
-	AccessToken string
-	Client      *http.Client
+	AccessToken      string
+	Client           *http.Client
 	SecretDataConfig SecretData
 }
 
@@ -131,10 +131,10 @@ func (client *HttpClient) GetUserDataByUsernameOrId(usernameOrId string) (map[st
 }
 
 type ParsingConfig struct {
-	Warmups  int
-	SkipLast int
-	Verbose  bool
-	Debug    bool
+	Warmups           int
+	SkipLast          int
+	Verbose           bool
+	Debug             bool
 	MatchcostStandard int
 }
 
@@ -162,7 +162,7 @@ func (client *HttpClient) reqMatchData(method string, url string, body io.Reader
 	return data, err
 }
 
-func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, error) {
+func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, map[string]interface{}, error) {
 	var matchUrl string
 	var matchId int
 	if parsingConfig.Debug && len(matchArg) == 0 {
@@ -172,7 +172,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		matchUrl, err = reader.ReadString('\n')
 		matchUrl = strings.TrimSpace(matchUrl)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		// fmt.Println(matchUrl)
 	} else {
@@ -186,43 +186,46 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		matchesRegexp := regexp.MustCompile(`matches/\d+`)
 		allSubstr := matchesRegexp.FindAllString(matchUrl, -1)
 		if allSubstr == nil {
-			 return nil, nil, errors.New("invalid link: cannot find matches/")
+			return nil, nil, nil, errors.New("invalid link: cannot find matches/")
 		}
 		endOfUrl := allSubstr[0]
 		splitUrl := strings.Split(endOfUrl, "/")
 		if len(splitUrl) != 2 {
-			 return nil, nil, errors.New("invalid link: can't find match id")
+			return nil, nil, nil, errors.New("invalid link: can't find match id")
 		}
 		var matchIdStr = splitUrl[1]
 		var err error
 		matchId, err = strconv.Atoi(matchIdStr)
 		if err != nil {
-			 return nil, nil, errors.New("invalid link: can't convert matchIdStr to int")
+			return nil, nil, nil, errors.New("invalid link: can't convert matchIdStr to int")
 		}
 	} else {
 		var err error
 		matchId, err = strconv.Atoi(matchUrl)
 		if err != nil {
-			return nil, nil, errors.New("invalid link: can't convert matchArg to int")
+			return nil, nil, nil, errors.New("invalid link: can't convert matchArg to int")
 		}
 	}
 	url := fmt.Sprintf("https://osu.ppy.sh/api/v2/matches/%d", matchId)
 	data, err := client.reqMatchData(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("can't request match data: %s", err))
+		return nil, nil, nil, errors.New(fmt.Sprintf("can't request match data: %s", err))
 	}
 	// START WORKING WITH DATA
 	var userDict map[int]interface{} // for user data
 	userDict = make(map[int]interface{})
-	var allScoresList []map[string]interface{}  // for scores in multiplayer
+	var additionalInfo map[string]interface{} // for additional info
+	additionalInfo = make(map[string]interface{})
+	additionalInfo = data["match"].(map[string]interface{})
+	var allScoresList []map[string]interface{} // for scores in multiplayer
 
 	firstEventId, ok := data["first_event_id"].(float64)
 	if ok != true {
-		return nil, nil, errors.New("can't convert first_event_id to float64")
+		return nil, nil, nil, errors.New("can't convert first_event_id to float64")
 	}
 	lastEventId, ok := data["latest_event_id"].(float64)
 	if ok != true {
-		return nil, nil, errors.New("can't convert latest_event_id to float64")
+		return nil, nil, nil, errors.New("can't convert latest_event_id to float64")
 	}
 	eventId := firstEventId
 	for eventId < lastEventId {
@@ -233,22 +236,22 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		url := fmt.Sprintf("https://osu.ppy.sh/api/v2/matches/%d", matchId)
 		matchData, err := client.reqMatchData(http.MethodGet, url, bytes.NewBuffer(jsonDataForQuery))
 		if err != nil {
-			return nil, nil, errors.New(fmt.Sprintf("can't request match data by url: %s; error: %s", url, err))
+			return nil, nil, nil, errors.New(fmt.Sprintf("can't request match data by url: %s; error: %s", url, err))
 		}
 		dataUsers, ok := matchData["users"].([]interface{})
 		if ok != true {
-			return nil, nil, errors.New("can't convert data['users'] to list of maps")
+			return nil, nil, nil, errors.New("can't convert data['users'] to list of maps")
 		}
 		for _, user := range dataUsers {
 			dataUserDict, ok := user.(map[string]interface{})
 			if ok != true {
-				 return nil, nil, errors.New("can't convert userDict to map")
+				return nil, nil, nil, errors.New("can't convert userDict to map")
 			}
 
 			userIdInterface := dataUserDict["id"]
 			userIdFloat, ok := userIdInterface.(float64)
 			if ok != true {
-				 return nil, nil, errors.New("can't convert userId to float")
+				return nil, nil, nil, errors.New("can't convert userId to float")
 			}
 			userId := int(userIdFloat)
 			_, ok = userDict[userId]
@@ -263,7 +266,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		for _, event := range eventsData {
 			dataEventDict, ok := event.(map[string]interface{})
 			if ok != true {
-				return nil, nil, errors.New("can't convert event to map")
+				return nil, nil, nil, errors.New("can't convert event to map")
 			}
 			dataEventDetailDict, ok := dataEventDict["detail"].(map[string]interface{})
 			if ok != true {
@@ -287,11 +290,11 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		}
 		lastEventInBatchDict, ok := eventsData[len(eventsData)-1].(map[string]interface{})
 		if ok != true {
-			return nil, nil, errors.New("can't convert lastEventInBatch to map[string]interface{}")
+			return nil, nil, nil, errors.New("can't convert lastEventInBatch to map[string]interface{}")
 		}
 		eventId, ok = lastEventInBatchDict["id"].(float64)
 		if ok != true {
-			return nil, nil, errors.New("can't convert lastEventInBatch['id'] to float64")
+			return nil, nil, nil, errors.New("can't convert lastEventInBatch['id'] to float64")
 		}
 	}
 
@@ -304,21 +307,21 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 	for _, scoreStruct := range allScoresList {
 		scoreStructDict := scoreStruct
 		if ok != true {
-			return nil, nil, errors.New("can't convert scoreStruct to map")
+			return nil, nil, nil, errors.New("can't convert scoreStruct to map")
 		}
 		beatmapIdFloat, ok := scoreStructDict["beatmap_id"].(float64)
 		if ok != true {
-			return nil, nil, errors.New("can't convert beatmapId to float64")
+			return nil, nil, nil, errors.New("can't convert beatmapId to float64")
 		}
 		beatmapId := int(beatmapIdFloat)
 		scores, ok := scoreStructDict["scores"].([]interface{})
 		if ok != true {
-			return nil, nil, errors.New("can't convert scores to list of maps")
+			return nil, nil, nil, errors.New("can't convert scores to list of maps")
 		}
 		for _, score := range scores {
 			scoreDict, ok := score.(map[string]interface{})
 			if ok != true {
-				return nil, nil, errors.New("can't convert score to map")
+				return nil, nil, nil, errors.New("can't convert score to map")
 			}
 			userIdFloat := scoreDict["user_id"].(float64)
 			userId := int(userIdFloat)
@@ -328,7 +331,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			if hasPlayedTwice {
 				oldBeatmapScoreDict, ok := playedMaps[beatmapId].(map[string]interface{})
 				if ok != true {
-					return nil, nil, errors.New("can't convert playedMap[beatmapId] to map")
+					return nil, nil, nil, errors.New("can't convert playedMap[beatmapId] to map")
 				}
 				oldScore := oldBeatmapScoreDict["score"].(float64)
 				if oldScore < scoreDict["score"].(float64) {
@@ -346,11 +349,11 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 		mapsPlayed := 0
 		userDetailsDict, ok := userDetails.(map[string]interface{})
 		if ok != true {
-			return nil, nil, errors.New("can't convert userDict to map")
+			return nil, nil, nil, errors.New("can't convert userDict to map")
 		}
 		userPlayedMaps, ok := userDetailsDict["played_maps"].(map[int]interface{})
 		if ok != true {
-			return nil, nil, errors.New("can't convert userDict to map")
+			return nil, nil, nil, errors.New("can't convert userDict to map")
 		}
 		userDetailsDict["score_sum"] = 0
 		userDictScoreSum := float64(userDetailsDict["score_sum"].(int))
@@ -358,7 +361,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			mapsPlayed += 1
 			score, ok := scoreStruct.(float64)
 			if ok != true {
-				return nil, nil, errors.New("can't convert scoreStruct to float64")
+				return nil, nil, nil, errors.New("can't convert scoreStruct to float64")
 			}
 			userDictScoreSum += score
 		}
@@ -377,15 +380,15 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			if ok != true {
 				userDetailsAvgScore, ok := userDetailsDict["average_score"].(int)
 				if ok != true {
-					return nil, nil, errors.New("can't convert averageScore to float64/int")
+					return nil, nil, nil, errors.New("can't convert averageScore to float64/int")
 				}
 				userDetailsAvgScore = userDetailsAvgScore
 			}
 			newEntry := []float64{float64(userId), userDetailsAvgScore}
-			averageScoresList= append(averageScoresList, newEntry)
+			averageScoresList = append(averageScoresList, newEntry)
 		}
 		sort.Slice(averageScoresList, func(i, j int) bool {
-			return averageScoresList[i][1] > averageScoresList[j][1]  // DESC
+			return averageScoresList[i][1] > averageScoresList[j][1] // DESC
 		})
 		for _, sortedEntry := range averageScoresList {
 			userId := int(sortedEntry[0])
@@ -394,7 +397,7 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			if ok != true {
 				avgScore, ok := userDetailsDict["average_score"].(int)
 				if ok != true {
-					return nil, nil, errors.New("can't convert averageScore to float64/int")
+					return nil, nil, nil, errors.New("can't convert averageScore to float64/int")
 				}
 				avgScore = avgScore
 			}
@@ -402,14 +405,14 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 			playedMaps := userDetailsDict["played_maps"].(map[int]interface{})
 			scoreSum := int(userDetailsDict["score_sum"].(float64))
 			fmt.Printf("username: %s (id: %d); avg. score: %f ; match cost: %f ; played maps: %d ; score sum: %d \n",
-				username, userId, avgScore, avgScore / float64(parsingConfig.MatchcostStandard), len(playedMaps), scoreSum)
+				username, userId, avgScore, avgScore/float64(parsingConfig.MatchcostStandard), len(playedMaps), scoreSum)
 		}
 	}
 	// TODO: refactor
-	return allScoresList, userDict, nil
+	return allScoresList, userDict, additionalInfo, nil
 }
 
-func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, error) {
+func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, map[string]interface{}, error) {
 	var matchUrl string
 	if parsingConfig.Debug && len(matchArg) == 0 {
 		fmt.Println("Вставьте ссылку на матч")
@@ -418,18 +421,18 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 		matchUrl, err = reader.ReadString('\n')
 		matchUrl = strings.TrimSpace(matchUrl)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		fmt.Println(matchUrl)
 	} else {
 		matchUrl = matchArg
 	}
-	var parsingMpLinkConfig = ParsingConfig { Warmups: parsingConfig.Warmups, SkipLast: parsingConfig.SkipLast,
+	var parsingMpLinkConfig = ParsingConfig{Warmups: parsingConfig.Warmups, SkipLast: parsingConfig.SkipLast,
 		Verbose: false, Debug: false, MatchcostStandard: parsingConfig.MatchcostStandard}
 
-	allScoresList, userDict, err := client.ParseMplink(matchUrl, parsingMpLinkConfig)
+	allScoresList, userDict, additionalInfo, err := client.ParseMplink(matchUrl, parsingMpLinkConfig)
 	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("Can't parse mpLink becaus of: %s", err))
+		return nil, nil, nil, errors.New(fmt.Sprintf("Can't parse mpLink becaus of: %s", err))
 	}
 	for _, userDetails := range userDict {
 		userDetailsDict := userDetails.(map[string]interface{})
@@ -443,10 +446,10 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 		// fmt.Println(scores)
 
 		type PlayerScore struct {
-			userId   float64
-			score float64
+			userId float64
+			score  float64
 		}
-		var playerScorePairs[]PlayerScore
+		var playerScorePairs []PlayerScore
 		for _, value := range scores {
 			// fmt.Println(key, value, playerScorePairs)
 			valueMap := value.(map[string]interface{})
@@ -456,7 +459,7 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 			// fmt.Println(keyValuePairs)
 		}
 		sort.Slice(playerScorePairs, func(i, j int) bool {
-			return playerScorePairs[i].score > playerScorePairs[j].score  // DESC !
+			return playerScorePairs[i].score > playerScorePairs[j].score // DESC !
 		})
 		// fmt.Println(playerScorePairs)
 		playerWonMap := int(playerScorePairs[0].userId)
@@ -465,10 +468,9 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 		userDetails["maps_won"] = userDetailsMapsWon + 1
 		// fmt.Println(userDetails["maps_won"])
 
-
 	}
 	type PlayerWonMap struct {
-		userId   int
+		userId  int
 		mapsWon int
 	}
 	var PlayerWonMapList []PlayerWonMap
@@ -478,15 +480,15 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 			mapsWon: userDetailsDict["maps_won"].(int)})
 	}
 	sort.Slice(PlayerWonMapList, func(i, j int) bool {
-		return PlayerWonMapList[i].mapsWon > PlayerWonMapList[j].mapsWon  // DESC !
+		return PlayerWonMapList[i].mapsWon > PlayerWonMapList[j].mapsWon // DESC !
 	})
 	if len(PlayerWonMapList) < 2 {
-		return nil, nil, errors.New("there are not enough players")
+		return nil, nil, nil, errors.New("there are not enough players")
 	}
 	firstPlayer := userDict[PlayerWonMapList[0].userId]
 	secondPlayer := userDict[PlayerWonMapList[1].userId]
 	userDictForOutput := make(map[int]interface{})
 	userDictForOutput[PlayerWonMapList[0].userId] = firstPlayer
 	userDictForOutput[PlayerWonMapList[1].userId] = secondPlayer
-	return allScoresList, userDictForOutput, nil
+	return allScoresList, userDictForOutput, additionalInfo, nil
 }
