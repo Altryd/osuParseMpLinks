@@ -19,11 +19,16 @@ func (data *SecretData) getClientId() int {
 func (data *SecretData) getClientSecret() string {
 	return data.ClientSecret
 }
-func NewSecretData(pathToSecrets string) SecretData {
+func NewSecretData(pathToSecrets string) (SecretData, error) {
 
 	jsonFile, err := os.Open(pathToSecrets)
 	if err != nil {
-		panic(err)
+		return SecretData{
+			ClientId:     0,
+			ClientSecret: "",
+			GrantType:    "",
+			Scope:        "",
+		}, err
 	}
 	defer jsonFile.Close()
 
@@ -36,5 +41,5 @@ func NewSecretData(pathToSecrets string) SecretData {
 		data.getClientSecret(),
 		data.GrantType,
 		data.Scope,
-	}
+	}, nil
 }

@@ -18,25 +18,44 @@ import (
 type HttpClient struct {
 	AccessToken string
 	Client      *http.Client
+	SecretDataConfig SecretData
 }
 
 func NewHttpClient() HttpClient {
 	client := HttpClient{
 		"DefaultToken",
 		&http.Client{},
+		SecretData{},
 	}
-	client.UpdateToken()
+	client.UpdateToken("secrets.json")
 
 	return client
 }
 
-func (client *HttpClient) UpdateToken() error {
-	secretData := NewSecretData("osu_api_usage/secrets.json")
-	jsonData, err := json.Marshal(secretData)
+func NewHttpClientWithSecretData(secretData SecretData) HttpClient {
+	client := HttpClient{
+		"DefaultToken",
+		&http.Client{},
+		secretData,
+	}
+	client.UpdateToken("secrets.json")
+
+	return client
+}
+
+func (client *HttpClient) UpdateToken(pathToSecrets string) error {
+	if client.SecretDataConfig.ClientId == 0 {
+		secretData, err := NewSecretData(pathToSecrets)
+		if err != nil {
+			return err
+		}
+		client.SecretDataConfig = secretData
+	}
+	jsonData, err := json.Marshal(client.SecretDataConfig)
 	if err != nil {
 		return err
 	}
-
+	
 	url := "https://osu.ppy.sh/oauth/token"
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -92,7 +111,7 @@ func (client *HttpClient) GetUserDataByUsernameOrId(usernameOrId string) (map[st
 	}
 	defer resp.Body.Close()
 	if resp.Status == "401" {
-		client.UpdateToken()
+		client.UpdateToken("secrets.json")
 		resp, err := client.reqUserData(usernameOrId)
 		if err != nil {
 			return nil, err
