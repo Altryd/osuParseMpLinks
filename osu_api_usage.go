@@ -412,7 +412,16 @@ func (client *HttpClient) ParseMplink(matchArg string, parsingConfig ParsingConf
 	return allScoresList, userDict, additionalInfo, nil
 }
 
-func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, map[int]interface{}, map[string]interface{}, error) {
+type ScrimUserDict struct {
+	osuId uint64
+	MapsWon uint8
+	Username string
+	ScoreSum float64
+	AverageScore float64
+	PlayedMaps map[int]interface{}
+}
+
+func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfig) ([]map[string]interface{}, []ScrimUserDict, map[string]interface{}, error) {
 	var matchUrl string
 	if parsingConfig.Debug && len(matchArg) == 0 {
 		fmt.Println("Вставьте ссылку на матч")
@@ -490,5 +499,23 @@ func (client *HttpClient) ParseScrim(matchArg string, parsingConfig ParsingConfi
 	userDictForOutput := make(map[int]interface{})
 	userDictForOutput[PlayerWonMapList[0].userId] = firstPlayer
 	userDictForOutput[PlayerWonMapList[1].userId] = secondPlayer
-	return allScoresList, userDictForOutput, additionalInfo, nil
+	var scrimUserDict ScrimUserDict
+	scrimUserDict.osuId = uint64(PlayerWonMapList[0].userId)
+	firstPlayerDict := firstPlayer.(map[string]interface{})
+	scrimUserDict.Username = firstPlayerDict["username"].(string)
+	scrimUserDict.ScoreSum = firstPlayerDict["score_sum"].(float64)
+	scrimUserDict.MapsWon = uint8(firstPlayerDict["maps_won"].(int))
+	scrimUserDict.AverageScore = firstPlayerDict["average_score"].(float64)
+	scrimUserDict.PlayedMaps = firstPlayerDict["played_maps"].(map[int]interface{})
+	var secondScrimUserDict ScrimUserDict
+	secondScrimUserDict.osuId = uint64(PlayerWonMapList[1].userId)
+	secondPlayerDict := secondPlayer.(map[string]interface{})
+	secondScrimUserDict.Username = secondPlayerDict["username"].(string)
+	secondScrimUserDict.ScoreSum = secondPlayerDict["score_sum"].(float64)
+	secondScrimUserDict.MapsWon = uint8(secondPlayerDict["maps_won"].(int))
+	secondScrimUserDict.AverageScore = secondPlayerDict["average_score"].(float64)
+	secondScrimUserDict.PlayedMaps = secondPlayerDict["played_maps"].(map[int]interface{})
+	var userListForOutput []ScrimUserDict
+	userListForOutput = append(userListForOutput, scrimUserDict, secondScrimUserDict)
+	return allScoresList, userListForOutput, additionalInfo, nil
 }
